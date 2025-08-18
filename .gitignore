@@ -1,0 +1,181 @@
+# Go 编译产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# Go 构建缓存
+.cache/
+
+# 依赖管理
+vendor/
+
+# 测试覆盖率文件
+*.cover
+coverage.txt
+coverage.html
+coverage.out
+
+# 性能分析文件
+*.prof
+*.pprof
+cpu.prof
+mem.prof
+block.prof
+mutex.prof
+
+# 日志文件
+*.log
+logs/
+log/
+
+# 临时文件
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# 配置文件（包含敏感信息）
+*.env
+.env.*
+config.local.*
+*.secret
+secrets/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+data/
+database/
+
+# 缓存目录
+.cache/
+
+# 运行时文件
+*.pid
+*.sock
+pids/
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# JetBrains IDEs
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Vim
+*.swp
+*.swo
+*.swn
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 开发工具
+.codebuddy/
+.trae/
+
+# 构建输出
+bin/
+build/
+dist/
+out/
+
+# 文档生成
+docs/build/
+site/
+
+# 压缩文件
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# 证书和密钥
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# 备份文件
+*.bak
+*.backup
+*.old
+
+# Node.js (如果项目中有前端部分)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 静态资源构建产物
+public/
+static/build/
+assets/build/
+
+# 监控和指标
+metrics/
+prometheus/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+
+# 本地开发
+.local/
+local/
+
+# 测试数据
+testdata/fixtures/
+test-results/
+
+# 性能测试
+benchmark/
+load-test/
+
+# 部署相关
+deploy/local/
+k8s/local/
+
+# 自定义忽略（项目特定）
+# 在这里添加项目特定的忽略规则
