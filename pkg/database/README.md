@@ -39,7 +39,7 @@
 ## 安装
 
 ```bash
-go get github.com/your-org/basic/pkg/database
+go get github.com/tokmz/basic/pkg/database
 ```
 
 ## 快速开始
@@ -51,7 +51,7 @@ import (
     "log"
     "time"
     
-    "github.com/your-org/basic/pkg/database"
+    "github.com/tokmz/basic/pkg/database"
     "go.uber.org/zap"
 )
 
