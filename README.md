@@ -101,8 +101,8 @@ basic/
 package main
 
 import (
-    \"time\"
-    \"github.com/tokmz/basic/pkg/database\"
+    "time"
+    "github.com/tokmz/basic/pkg/database"
 )
 
 func main() {
