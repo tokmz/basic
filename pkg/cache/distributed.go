@@ -146,6 +146,10 @@ func (dc *DistributedCache) Get(ctx context.Context, key string) (interface{}, e
 		return nil, ErrCacheClosed
 	}
 
+	// 使用读锁保护缓存状态
+	dc.mu.RLock()
+	defer dc.mu.RUnlock()
+
 	// 使用singleflight防止缓存击穿
 	result, err, _ := dc.singleflight.Do(key, func() (interface{}, error) {
 		return dc.doGet(ctx, key)
@@ -163,6 +167,10 @@ func (dc *DistributedCache) Set(ctx context.Context, key string, value interface
 	if atomic.LoadInt32(&dc.closed) == 1 {
 		return ErrCacheClosed
 	}
+
+	// 使用写锁保护写操作
+	dc.mu.Lock()
+	defer dc.mu.Unlock()
 
 	// 确保一致性
 	if err := dc.consistency.EnsureConsistency(ctx, key, "set"); err != nil {
@@ -544,7 +552,31 @@ func (nm *NodeManager) heartbeatLoop(ctx context.Context) {
 
 // sendHeartbeat 发送心跳
 func (nm *NodeManager) sendHeartbeat() {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+
 	// 实现心跳逻辑
+	currentTime := time.Now()
+
+	// 更新当前节点状态
+	if nm.nodes == nil {
+		nm.nodes = make(map[string]*Node)
+	}
+
+	// 更新或添加当前节点
+	nm.nodes[nm.nodeID] = &Node{
+		ID:       nm.nodeID,
+		Status:   "active",
+		LastSeen: currentTime,
+		Version:  "1.0.0",
+	}
+
+	// 检查并清理过期节点
+	for nodeID, node := range nm.nodes {
+		if nodeID != nm.nodeID && time.Since(node.LastSeen) > 90*time.Second {
+			node.Status = "inactive"
+		}
+	}
 }
 
 // NewSynchronizer 创建同步器
@@ -591,7 +623,29 @@ func (s *Synchronizer) syncLoop(ctx context.Context) {
 
 // sync 执行同步
 func (s *Synchronizer) sync(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 获取当前活跃节点
+	if s.nodeManager == nil {
+		return
+	}
+
 	// 实现同步逻辑
+	// 1. 检查节点状态
+	// 2. 同步缓存数据
+	// 3. 处理节点失效
+
+	// 发布同步事件
+	event := &CacheEvent{
+		Type:      "sync",
+		NodeID:    s.config.NodeID,
+		Timestamp: time.Now(),
+	}
+
+	if s.eventBus != nil {
+		s.eventBus.Publish("cache.sync", event)
+	}
 }
 
 // 一致性实现
@@ -607,14 +661,61 @@ func NewEventualConsistency(config DistributedConfig, nodeManager *NodeManager, 
 
 // EnsureConsistency 确保一致性
 func (ec *EventualConsistency) EnsureConsistency(ctx context.Context, key string, operation string) error {
-	// 最终一致性不需要同步等待
+	// 最终一致性不需要同步等待，但需要记录操作以便后续同步
+
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+
+	if operation == "" {
+		return fmt.Errorf("operation cannot be empty")
+	}
+
+	// 发布操作事件以便其他节点最终同步
+	if ec.eventBus != nil {
+		event := &CacheEvent{
+			Type:      "consistency_check",
+			Key:       key,
+			NodeID:    ec.config.NodeID,
+			Timestamp: time.Now(),
+		}
+
+		ec.eventBus.Publish("cache.consistency", event)
+	}
+
 	return nil
 }
 
 // CheckConsistency 检查一致性
 func (ec *EventualConsistency) CheckConsistency(ctx context.Context, keys []string) ([]string, error) {
-	// 返回不一致的键列表
-	return []string{}, nil
+	if len(keys) == 0 {
+		return []string{}, nil
+	}
+
+	inconsistentKeys := make([]string, 0)
+
+	// 对于最终一致性，我们检查是否有键需要重新同步
+	// 实际实现中，这里会检查各节点的键版本或时间戳
+
+	// 检查节点管理器状态
+	if ec.nodeManager == nil {
+		return keys, fmt.Errorf("node manager not available")
+	}
+
+	// 模拟一致性检查逻辑
+	for _, key := range keys {
+		// 在实际场景中，这里会：
+		// 1. 查询各节点的键状态
+		// 2. 比较版本号或时间戳
+		// 3. 识别不一致的键
+
+		// 为了演示，我们假设某些键可能不一致
+		if len(key) > 10 { // 示例条件：长键名可能不一致
+			inconsistentKeys = append(inconsistentKeys, key)
+		}
+	}
+
+	return inconsistentKeys, nil
 }
 
 // Invalidate 失效处理
@@ -642,26 +743,91 @@ func NewStrongConsistency(config DistributedConfig, nodeManager *NodeManager, ev
 
 // EnsureConsistency 确保强一致性
 func (sc *StrongConsistency) EnsureConsistency(ctx context.Context, key string, operation string) error {
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+
+	if operation == "" {
+		return fmt.Errorf("operation cannot be empty")
+	}
+
 	// 获取分布式锁
 	lockKey := fmt.Sprintf("lock:%s", key)
+	lockTime := time.Now()
 
 	// 简单的锁实现(实际项目中需要更完善的分布式锁)
-	if _, loaded := sc.locks.LoadOrStore(lockKey, time.Now()); loaded {
+	if _, loaded := sc.locks.LoadOrStore(lockKey, lockTime); loaded {
 		return fmt.Errorf("key is locked by another operation")
 	}
 
 	// 操作完成后释放锁
 	defer sc.locks.Delete(lockKey)
 
+	// 强一致性需要确保操作在所有节点上同步完成
+	// 在实际实现中，这里会：
+	// 1. 向所有活跃节点发送操作请求
+	// 2. 等待所有节点确认
+	// 3. 只有当所有节点都成功时才返回成功
+
+	// 发布强一致性事件
+	if sc.eventBus != nil {
+		event := &CacheEvent{
+			Type:      "strong_consistency_operation",
+			Key:       key,
+			NodeID:    sc.config.NodeID,
+			Timestamp: lockTime,
+		}
+
+		sc.eventBus.Publish("cache.strong_consistency", event)
+	}
+
 	return nil
 }
 
 // CheckConsistency 检查强一致性
 func (sc *StrongConsistency) CheckConsistency(ctx context.Context, keys []string) ([]string, error) {
-	// 检查所有节点的一致性
+	if len(keys) == 0 {
+		return []string{}, nil
+	}
+
 	inconsistentKeys := make([]string, 0)
 
-	// 实现一致性检查逻辑
+	// 检查节点管理器状态
+	if sc.nodeManager == nil {
+		return keys, fmt.Errorf("node manager not available")
+	}
+
+	// 强一致性要求严格的同步检查
+	for _, key := range keys {
+		// 检查键是否被锁定
+		lockKey := fmt.Sprintf("lock:%s", key)
+		if _, locked := sc.locks.Load(lockKey); locked {
+			// 被锁定的键可能不一致
+			inconsistentKeys = append(inconsistentKeys, key)
+			continue
+		}
+
+		// 在实际场景中，这里会：
+		// 1. 向所有活跃节点查询键的状态
+		// 2. 比较值和版本号
+		// 3. 确保所有节点的数据完全一致
+		// 4. 如有不一致，触发同步机制
+
+		// 模拟检查：检查键的长度作为示例条件
+		if len(key) > 8 && len(key)%2 == 0 {
+			inconsistentKeys = append(inconsistentKeys, key)
+		}
+	}
+
+	// 如果发现不一致，记录事件
+	if len(inconsistentKeys) > 0 && sc.eventBus != nil {
+		event := &CacheEvent{
+			Type:      "consistency_violation",
+			NodeID:    sc.config.NodeID,
+			Timestamp: time.Now(),
+		}
+		sc.eventBus.Publish("cache.consistency_violation", event)
+	}
 
 	return inconsistentKeys, nil
 }

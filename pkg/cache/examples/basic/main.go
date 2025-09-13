@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/tokmz/basic/pkg/cache"
+	cache "github.com/tokmz/basic/pkg/cache"
 )
 
 func main() {
@@ -32,27 +32,27 @@ func basicMemoryExample() {
 	fmt.Println("1. 基本内存缓存使用:")
 
 	// 创建内存缓存
-	cache, err := cache.Create(cache.TypeMemoryLRU)
+	memCache, err := cache.Create(cache.TypeMemoryLRU)
 	if err != nil {
 		log.Fatalf("创建缓存失败: %v", err)
 	}
-	defer cache.Close()
+	defer memCache.Close()
 
 	ctx := context.Background()
 
 	// 设置缓存
-	err = cache.Set(ctx, "user:123", "Alice Smith", time.Hour)
+	err = memCache.Set(ctx, "user:123", "Alice Smith", time.Hour)
 	if err != nil {
 		log.Fatalf("设置缓存失败: %v", err)
 	}
 
-	err = cache.Set(ctx, "user:456", "Bob Johnson", time.Hour)
+	err = memCache.Set(ctx, "user:456", "Bob Johnson", time.Hour)
 	if err != nil {
 		log.Fatalf("设置缓存失败: %v", err)
 	}
 
 	// 获取缓存
-	value, err := cache.Get(ctx, "user:123")
+	value, err := memCache.Get(ctx, "user:123")
 	if err != nil {
 		log.Printf("获取缓存失败: %v", err)
 	} else {
@@ -60,15 +60,15 @@ func basicMemoryExample() {
 	}
 
 	// 检查键是否存在
-	exists, _ := cache.Exists(ctx, "user:456")
+	exists, _ := memCache.Exists(ctx, "user:456")
 	fmt.Printf("  用户456是否存在: %t\n", exists)
 
 	// 获取所有键
-	keys, _ := cache.Keys(ctx, "*")
+	keys, _ := memCache.Keys(ctx, "*")
 	fmt.Printf("  所有键: %v\n", keys)
 
 	// 删除缓存
-	err = cache.Delete(ctx, "user:456")
+	err = memCache.Delete(ctx, "user:456")
 	if err != nil {
 		log.Printf("删除缓存失败: %v", err)
 	} else {
@@ -82,7 +82,7 @@ func builderExample() {
 	fmt.Println("2. 使用Builder模式创建缓存:")
 
 	// 使用Builder模式创建自定义配置的缓存
-	cache, err := cache.NewCacheBuilder().
+	builderCache, err := cache.NewCacheBuilder().
 		WithType(cache.TypeMemoryLRU).
 		WithMemoryConfig(cache.MemoryConfig{
 			MaxSize:         100,
@@ -101,7 +101,7 @@ func builderExample() {
 	if err != nil {
 		log.Fatalf("构建缓存失败: %v", err)
 	}
-	defer cache.Close()
+	defer builderCache.Close()
 
 	ctx := context.Background()
 
@@ -109,7 +109,7 @@ func builderExample() {
 	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("item:%d", i)
 		value := fmt.Sprintf("数据项 %d", i)
-		cache.Set(ctx, key, value, 30*time.Minute)
+		builderCache.Set(ctx, key, value, 30*time.Minute)
 	}
 
 	fmt.Printf("  已创建自定义配置的缓存，填充了10个数据项\n")
@@ -117,10 +117,10 @@ func builderExample() {
 	// 模拟一些获取操作
 	for i := 0; i < 15; i++ {
 		key := fmt.Sprintf("item:%d", i%10)
-		cache.Get(ctx, key)
+		builderCache.Get(ctx, key)
 	}
 
-	stats := cache.Stats()
+	stats := builderCache.Stats()
 	fmt.Printf("  缓存统计: 命中率=%.2f%%, 总请求=%d, 缓存大小=%d\n",
 		stats.HitRate*100, stats.TotalRequests, stats.Size)
 
@@ -184,11 +184,11 @@ func managerExample() {
 func statsExample() {
 	fmt.Println("4. 统计信息和监控:")
 
-	cache, err := cache.Create(cache.TypeMemoryLRU)
+	statsCache, err := cache.Create(cache.TypeMemoryLRU)
 	if err != nil {
 		log.Fatalf("创建缓存失败: %v", err)
 	}
-	defer cache.Close()
+	defer statsCache.Close()
 
 	ctx := context.Background()
 
@@ -199,7 +199,7 @@ func statsExample() {
 	for i := 0; i < 20; i++ {
 		key := fmt.Sprintf("key:%d", i)
 		value := fmt.Sprintf("值 %d", i)
-		cache.Set(ctx, key, value, time.Hour)
+		statsCache.Set(ctx, key, value, time.Hour)
 	}
 
 	// 获取操作 (一些命中，一些未命中)
@@ -207,7 +207,7 @@ func statsExample() {
 	missCount := 0
 	for i := 0; i < 30; i++ {
 		key := fmt.Sprintf("key:%d", i) // 包含一些不存在的键
-		_, err := cache.Get(ctx, key)
+		_, err := statsCache.Get(ctx, key)
 		if err == nil {
 			hitCount++
 		} else {
@@ -218,11 +218,11 @@ func statsExample() {
 	// 删除操作
 	for i := 0; i < 5; i++ {
 		key := fmt.Sprintf("key:%d", i)
-		cache.Delete(ctx, key)
+		statsCache.Delete(ctx, key)
 	}
 
 	// 获取并显示统计信息
-	stats := cache.Stats()
+	stats := statsCache.Stats()
 	fmt.Printf("  统计信息:\n")
 	fmt.Printf("    总请求数: %d\n", stats.TotalRequests)
 	fmt.Printf("    命中次数: %d\n", stats.Hits)
@@ -239,16 +239,16 @@ func statsExample() {
 func errorHandlingExample() {
 	fmt.Println("5. 错误处理示例:")
 
-	cache, err := cache.Create(cache.TypeMemoryLRU)
+	errorCache, err := cache.Create(cache.TypeMemoryLRU)
 	if err != nil {
 		log.Fatalf("创建缓存失败: %v", err)
 	}
-	defer cache.Close()
+	defer errorCache.Close()
 
 	ctx := context.Background()
 
 	// 尝试获取不存在的键
-	_, err = cache.Get(ctx, "不存在的键")
+	_, err = errorCache.Get(ctx, "不存在的键")
 	if err != nil {
 		switch err {
 		case cache.ErrKeyNotFound:
@@ -261,8 +261,8 @@ func errorHandlingExample() {
 	}
 
 	// 关闭缓存后尝试操作
-	cache.Close()
-	_, err = cache.Get(ctx, "any_key")
+	errorCache.Close()
+	_, err = errorCache.Get(ctx, "any_key")
 	if err == cache.ErrCacheClosed {
 		fmt.Println("  缓存已关闭，操作被拒绝")
 	}
