@@ -34,8 +34,14 @@ basic/
     │   ├── *.go           # 核心实现
     │   ├── *_test.go      # 单元测试
     │   └── example_usage.go # 使用示例
-    └── config/            # 配置包
-        ├── README.md      # 配置包文档
+    ├── config/            # 配置包
+    │   ├── README.md      # 配置包文档
+    │   ├── go.mod         # 模块定义
+    │   ├── *.go           # 核心实现
+    │   ├── *_test.go      # 单元测试
+    │   └── example_usage.go # 使用示例
+    └── monitor/           # 系统监控包
+        ├── README.md      # 监控包文档
         ├── go.mod         # 模块定义
         ├── *.go           # 核心实现
         ├── *_test.go      # 单元测试
@@ -407,6 +413,85 @@ manager, err := envManager.LoadWithEnvironment(currentEnv, nil)
 
 更多详细用法请参考：[Config 包文档](pkg/config/README.md)
 
+### Monitor 包 - 企业级系统监控包
+
+一个功能完整的Go语言系统监控包，提供实时系统资源监控、告警管理、数据持久化等企业级功能：
+
+#### ✨ 核心特性
+
+1. **全面的系统监控** - 完整的系统资源监控
+   - CPU监控（实时使用率、核心数统计）
+   - 内存监控（使用量、可用量、交换分区）
+   - 磁盘监控（使用率、I/O统计、挂载点信息）
+   - 网络监控（接口状态、流量统计、连接信息）
+   - 进程监控（进程列表、资源使用、进程树）
+   - 系统负载（负载平均值监控）
+
+2. **智能告警系统** - 灵活的告警规则引擎
+   - 多级告警（Info、Warning、Critical）
+   - 规则引擎（阈值、持续时间、操作符）
+   - 多种通知方式（日志、邮件、Webhook）
+   - 告警聚合和去重
+   - 完整的告警历史记录
+
+3. **数据持久化** - 高效的数据存储系统
+   - 文件存储（支持压缩和轮转）
+   - 内存存储（高性能临时存储）
+   - 灵活查询（时间范围、标签过滤）
+   - 自动数据清理和保留策略
+
+4. **数据聚合分析** - 实时统计和趋势分析
+   - 实时聚合计算（平均值、最大值、最小值）
+   - 历史趋势分析
+   - 缓存优化查询性能
+   - 分页查询支持
+
+5. **高度可扩展** - 模块化设计易于扩展
+   - 自定义指标收集器
+   - 插件式告警处理器
+   - 配置驱动的灵活配置
+   - 跨平台支持（Linux、macOS、Windows）
+
+#### 🚀 快速开始
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/tokmz/basic/pkg/monitor"
+)
+
+func main() {
+    // 1. 创建监控器
+    config := monitor.DefaultMonitorConfig()
+    monitor := monitor.NewSystemMonitor(config)
+    
+    // 2. 获取系统信息
+    systemInfo, err := monitor.GetSystemInfo()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Printf("Hostname: %s\n", systemInfo.Hostname)
+    fmt.Printf("OS: %s\n", systemInfo.OS)
+    
+    // 3. 获取CPU信息
+    if systemInfo.CPU != nil {
+        fmt.Printf("CPU Cores: %d, Usage: %.2f%%\n", 
+            systemInfo.CPU.Cores, systemInfo.CPU.Usage)
+    }
+    
+    // 4. 获取内存信息
+    if systemInfo.Memory != nil {
+        fmt.Printf("Memory Usage: %.2f%%\n", systemInfo.Memory.UsagePercent)
+    }
+}
+```
+
+更多详细用法请参考：[Monitor 包文档](pkg/monitor/README.md)
+
 ### Logger 包 - 企业级日志系统
 
 基于 Zap 的高性能企业级日志包，提供完整的日志管理解决方案：
@@ -656,6 +741,19 @@ go test -v -race -cover ./...
 | 热重载机制 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
 | 工厂模式 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
 
+### Monitor 包状态
+
+| 功能模块 | 实现状态 | 测试状态 | 并发安全 |
+|----------|----------|----------|----------|
+| 系统资源监控 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 网络监控 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 进程监控 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 数据聚合分析 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 智能告警系统 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 数据持久化 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 监控器接口 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 可扩展架构 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+
 ### 规划中的包
 
 - **Server 包** - HTTP/gRPC 服务框架
@@ -709,6 +807,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 - [Cache 包文档](pkg/cache/README.md)
 - [Config 包文档](pkg/config/README.md)
 - [Logger 包文档](pkg/logger/)
+- [Monitor 包文档](pkg/monitor/README.md)
 - [并发安全指南](CONCURRENT_SAFETY.md)
 - [变更日志](CHANGELOG.md)
 - [Go Workspace 官方文档](https://go.dev/doc/tutorial/workspaces)
