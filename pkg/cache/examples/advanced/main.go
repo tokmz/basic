@@ -285,7 +285,7 @@ func monitoringExample() {
 	// 定期获取统计信息
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	
+
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
