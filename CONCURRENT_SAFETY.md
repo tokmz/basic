@@ -190,13 +190,13 @@ func TestDeepCopyFunction(t *testing.T) {
 
 ```bash
 # 竞态条件检测
-go test -race -v -run=\"TestConcurrent\" ./...
+go test -race -v -run="TestConcurrent" ./...
 
 # 压力测试
-go test -race -v -run=\"TestConcurrent\" -timeout=60s ./...
+go test -race -v -run="TestConcurrent" -timeout=60s ./...
 
 # 基准测试
-go test -race -bench=\"BenchmarkConcurrent\" ./...
+go test -race -bench="BenchmarkConcurrent" ./...
 ```
 
 ### 测试结果示例
@@ -318,7 +318,7 @@ type AdvancedMonitor struct {
 ### 3. 无锁优化
 ```go
 // 对于简单计数，考虑使用原子操作
-import \"sync/atomic\"
+import "sync/atomic"
 
 type Counter struct {
     value int64
