@@ -109,13 +109,13 @@ func main() {
     // 配置数据库
     config := &database.DatabaseConfig{
         Master: database.MasterConfig{
-            Driver: \"mysql\",
-            DSN: \"user:pass@tcp(localhost:3306)/master_db\",
+            Driver: "mysql",
+            DSN: "user:pass@tcp(localhost:3306)/master_db",
         },
         Slaves: []database.SlaveConfig{
             {
-                Driver: \"mysql\",
-                DSN: \"user:pass@tcp(localhost:3307)/slave_db\",
+                Driver: "mysql",
+                DSN: "user:pass@tcp(localhost:3307)/slave_db",
                 Weight: 2, // 权重配置
             },
         },
