@@ -121,6 +121,150 @@ func main() {
 
 更多详细用法请参考：[Database 包文档](pkg/database/README.md)
 
+### Cache 包 - 企业级缓存系统
+
+基于内存和 Redis 的高性能企业级缓存包，提供多级缓存架构和完整的缓存管理解决方案：
+
+#### ✨ 核心特性
+
+1. **多级缓存架构** - 灵活的缓存层次设计
+   - 内存缓存(L1) + Redis缓存(L2)
+   - 支持LRU、LFU等多种淘汰策略
+   - 自动缓存预热和数据同步
+   - 可配置的TTL策略
+
+2. **高并发支持** - 线程安全的缓存操作
+   - 读写分离锁机制
+   - 原子操作保证数据一致性
+   - 支持数十万QPS访问
+   - 防缓存击穿和雪崩
+
+3. **完善监控** - 实时性能监控
+   - 命中率、错误率统计
+   - 响应时间监控
+   - 内存使用量跟踪
+   - 慢操作告警
+
+4. **分布式一致性** - 多节点缓存同步
+   - 最终一致性模式
+   - 强一致性模式
+   - 节点间数据同步
+   - 故障自动恢复
+
+5. **灵活配置** - 多种创建和配置方式
+   - Builder模式构建
+   - 工厂模式创建
+   - 配置文件驱动
+   - 运行时动态调整
+
+#### 🚀 快速开始
+
+```go
+package main
+
+import (
+    "context"
+    "time"
+    "github.com/tokmz/basic/pkg/cache"
+)
+
+func main() {
+    // 创建内存LRU缓存
+    memCache, err := cache.Create(cache.TypeMemoryLRU)
+    if err != nil {
+        panic(err)
+    }
+    defer memCache.Close()
+    
+    ctx := context.Background()
+    
+    // 设置缓存
+    err = memCache.Set(ctx, "user:123", "John Doe", time.Hour)
+    if err != nil {
+        panic(err)
+    }
+    
+    // 获取缓存
+    value, err := memCache.Get(ctx, "user:123")
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("User: %s\n", value)
+    
+    // 获取统计信息
+    stats := memCache.Stats()
+    fmt.Printf("命中率: %.2f%%\n", stats.HitRate*100)
+}
+```
+
+#### 📁 多级缓存配置示例
+
+```go
+// 多级缓存配置
+config := cache.DefaultConfig()
+config.Type = cache.TypeMultiLevel
+config.MultiLevel.EnableL1 = true  // 启用内存缓存
+config.MultiLevel.EnableL2 = true  // 启用Redis缓存
+config.MultiLevel.L1TTL = 30 * time.Minute
+config.MultiLevel.L2TTL = 2 * time.Hour
+config.MultiLevel.SyncStrategy = cache.SyncWriteThrough
+
+cache, err := cache.CreateWithConfig(config)
+if err != nil {
+    panic(err)
+}
+defer cache.Close()
+```
+
+#### 🔔 Builder模式示例
+
+```go
+// 使用Builder模式创建缓存
+cache, err := cache.NewCacheBuilder().
+    WithType(cache.TypeMemoryLRU).
+    WithMemoryConfig(cache.MemoryConfig{
+        MaxSize:         1000,
+        MaxMemory:       50 * 1024 * 1024, // 50MB
+        EvictPolicy:     cache.EvictLRU,
+        CleanupInterval: 5 * time.Minute,
+    }).
+    WithMonitoring(cache.MonitoringConfig{
+        EnableMetrics:   true,
+        EnableLogging:   true,
+        SlowThreshold:   100 * time.Millisecond,
+    }).
+    Build()
+
+if err != nil {
+    panic(err)
+}
+defer cache.Close()
+```
+
+#### 🎯 缓存管理器示例
+
+```go
+// 获取默认管理器
+manager := cache.GetDefaultManager()
+
+// 创建并注册多个缓存实例
+userCache, _ := manager.CreateAndRegisterCache("users", userConfig)
+productCache, _ := manager.CreateAndRegisterCache("products", productConfig)
+
+// 使用缓存
+userCache.Set(ctx, "user:123", userData, time.Hour)
+productCache.Set(ctx, "product:456", productData, time.Hour)
+
+// 获取所有缓存的统计信息
+allStats := manager.GetAllStats()
+for name, stats := range allStats {
+    fmt.Printf("缓存 %s: 命中率 %.2f%%\n", name, stats.HitRate*100)
+}
+```
+
+更多详细用法请参考：[Cache 包文档](pkg/cache/README.md)
+
 ### Logger 包 - 企业级日志系统
 
 基于 Zap 的高性能企业级日志包，提供完整的日志管理解决方案：
@@ -346,11 +490,22 @@ go test -v -race -cover ./...
 | HTTP中间件 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
 | 上下文追踪 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
 
+### Cache 包状态
+
+| 功能模块 | 实现状态 | 测试状态 | 并发安全 |
+|----------|----------|----------|----------|
+| 内存缓存(LRU/LFU) | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| Redis缓存 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 多级缓存 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 分布式缓存 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 监控统计 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+| 缓存管理器 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
+
 ### 规划中的包
 
-- **Cache 包** - Redis/内存缓存封装
 - **Config 包** - 配置管理和热重载
 - **Server 包** - HTTP/gRPC 服务框架
+- **Message 包** - 消息队列封装
 
 ## 🤝 贡献指南
 
@@ -396,6 +551,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 ## 🔗 相关链接
 
 - [Database 包文档](pkg/database/README.md)
+- [Cache 包文档](pkg/cache/README.md)
 - [Logger 包文档](pkg/logger/)
 - [并发安全指南](CONCURRENT_SAFETY.md)
 - [变更日志](CHANGELOG.md)
