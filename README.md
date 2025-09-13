@@ -24,7 +24,18 @@ basic/
     │   └── examples/      # 使用示例
     │       ├── basic/     # 基础用法示例
     │       └── advanced/  # 高级用法示例
-    └── logger/            # 日志包
+    ├── cache/             # 缓存包
+    │   ├── README.md      # 缓存包文档
+    │   ├── go.mod         # 模块定义
+    │   ├── *.go           # 核心实现
+    │   └── *_test.go      # 单元测试
+    ├── logger/            # 日志包
+    │   ├── go.mod         # 模块定义
+    │   ├── *.go           # 核心实现
+    │   ├── *_test.go      # 单元测试
+    │   └── example_usage.go # 使用示例
+    └── config/            # 配置包
+        ├── README.md      # 配置包文档
         ├── go.mod         # 模块定义
         ├── *.go           # 核心实现
         ├── *_test.go      # 单元测试
@@ -265,6 +276,137 @@ for name, stats := range allStats {
 
 更多详细用法请参考：[Cache 包文档](pkg/cache/README.md)
 
+### Config 包 - 企业级配置管理系统
+
+基于 Viper 的高性能企业级配置管理包，提供完整的配置管理解决方案：
+
+#### ✨ 核心特性
+
+1. **高性能配置管理** - 基于成熟稳定的 Viper 库
+   - 多格式支持（YAML、JSON、TOML、HCL、INI）
+   - 环境变量无缝集成
+   - 远程配置源支持（etcd、Consul、Firestore）
+   - 高效的内存缓存机制
+
+2. **安全加密功能** - 保护敏感配置信息
+   - AES-GCM 加密算法
+   - 选择性配置项加密
+   - 透明加解密操作
+   - 密钥管理和轮换支持
+
+3. **多环境管理** - 灵活的环境配置支持
+   - 自动环境检测
+   - 环境特定配置文件
+   - 配置继承机制
+   - 运行时环境切换
+
+4. **配置验证** - 类型安全和数据验证
+   - 强类型配置验证
+   - 自定义验证规则
+   - 范围和选项检查
+   - 必填项验证
+
+5. **热重载机制** - 动态配置更新
+   - 文件变化监听
+   - 配置变化事件通知
+   - 回调函数支持
+   - 原子性配置更新
+
+6. **工厂模式** - 灵活的管理器创建
+   - 多种管理器类型
+   - 自动类型检测
+   - 管理器注册机制
+   - 预设环境工厂
+
+#### 🚀 快速开始
+
+```go
+package main
+
+import (
+    "log"
+    "github.com/tokmz/basic/pkg/config"
+)
+
+func main() {
+    // 初始化全局配置
+    err := config.Init(config.DevelopmentConfig())
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer config.Close()
+    
+    // 读取配置
+    dbHost := config.GetString("database.host")
+    dbPort := config.GetInt("database.port")
+    debugMode := config.GetBool("debug")
+    
+    fmt.Printf("Database: %s:%d, Debug: %t\n", dbHost, dbPort, debugMode)
+}
+```
+
+#### 📁 Builder模式使用
+
+```go
+manager, err := config.NewConfigBuilder().
+    WithConfigName("myapp").
+    WithConfigType("yaml").
+    WithConfigPaths("./config").
+    WithEnvPrefix("MYAPP").
+    WithWatchConfig(true).
+    WithDefault("port", 8080).
+    Build()
+
+if err != nil {
+    log.Fatal(err)
+}
+defer manager.Close()
+
+port := manager.GetInt("port")
+fmt.Printf("Server will start on port: %d\n", port)
+```
+
+#### 🔐 加密配置示例
+
+```go
+// 指定需要加密的配置键
+encryptedKeys := []string{"database.password", "api.secret_key"}
+
+// 创建加密管理器
+manager, err := config.NewEncryptedViperManager(
+    &config.Config{
+        EncryptionKey: "your-encryption-key",
+        ConfigName:    "app",
+        ConfigType:    "yaml",
+    },
+    encryptedKeys,
+)
+
+// 设置敏感信息（自动加密）
+manager.SetString("database.password", "super-secret-password")
+
+// 读取配置（自动解密）
+password := manager.GetString("database.password")
+```
+
+#### 🌍 多环境配置示例
+
+```go
+// 自动检测环境
+detector := config.NewEnvironmentDetector()
+currentEnv := detector.DetectEnvironment()
+
+// 创建环境管理器
+envManager := config.NewEnvironmentManager(currentEnv)
+envManager.AddConfigPath(config.Development, "./config/dev")
+envManager.AddConfigPath(config.Production, "./config/prod")
+
+// 加载环境特定配置
+manager, err := envManager.LoadWithEnvironment(currentEnv, nil)
+```
+
+更多详细用法请参考：[Config 包文档](pkg/config/README.md)
+
 ### Logger 包 - 企业级日志系统
 
 基于 Zap 的高性能企业级日志包，提供完整的日志管理解决方案：
@@ -501,11 +643,24 @@ go test -v -race -cover ./...
 | 监控统计 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
 | 缓存管理器 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
 
+### Config 包状态
+
+| 功能模块 | 实现状态 | 测试状态 | 企业特性 |
+|----------|----------|----------|----------|
+| 基础配置管理 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 多格式支持 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 环境变量集成 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 配置加密 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 多环境管理 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 配置验证 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 热重载机制 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 工厂模式 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+
 ### 规划中的包
 
-- **Config 包** - 配置管理和热重载
 - **Server 包** - HTTP/gRPC 服务框架
 - **Message 包** - 消息队列封装
+- **Middleware 包** - 通用中间件
 
 ## 🤝 贡献指南
 
@@ -552,6 +707,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 - [Database 包文档](pkg/database/README.md)
 - [Cache 包文档](pkg/cache/README.md)
+- [Config 包文档](pkg/config/README.md)
 - [Logger 包文档](pkg/logger/)
 - [并发安全指南](CONCURRENT_SAFETY.md)
 - [变更日志](CHANGELOG.md)
