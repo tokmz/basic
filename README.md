@@ -40,8 +40,15 @@ basic/
     │   ├── *.go           # 核心实现
     │   ├── *_test.go      # 单元测试
     │   └── example_usage.go # 使用示例
-    └── monitor/           # 系统监控包
-        ├── README.md      # 监控包文档
+    ├── monitor/           # 系统监控包
+    │   ├── README.md      # 监控包文档
+    │   ├── go.mod         # 模块定义
+    │   ├── *.go           # 核心实现
+    │   ├── *_test.go      # 单元测试
+    │   └── example_usage.go # 使用示例
+    └── chi/               # 企业级Web框架
+        ├── README.md      # 框架文档
+        ├── CHANGELOG.md   # 更新日志
         ├── go.mod         # 模块定义
         ├── *.go           # 核心实现
         ├── *_test.go      # 单元测试
@@ -492,6 +499,193 @@ func main() {
 
 更多详细用法请参考：[Monitor 包文档](pkg/monitor/README.md)
 
+### Chi 包 - 企业级Web框架 🚀
+
+基于 Gin 构建的下一代企业级Web框架，提供完整的插件生态、分布式特性、服务治理和可观测性：
+
+#### ✨ 核心特性
+
+1. **🏗️ 企业级架构**
+   - **插件系统** - 动态插件加载/卸载，完整生命周期管理
+   - **服务发现** - 内置服务注册与发现，支持负载均衡
+   - **配置管理** - 热重载配置，环境特定配置支持
+   - **事件驱动** - 企业级事件总线，异步事件处理
+
+2. **🛡️ 服务治理**
+   - **熔断器** - 故障隔离与快速恢复
+   - **限流控制** - 令牌桶算法，多维度限流
+   - **舱壁模式** - 资源隔离与并发控制
+   - **负载均衡** - 多种负载均衡策略
+
+3. **📊 可观测性**
+   - **分布式追踪** - 完整链路追踪与性能分析
+   - **指标收集** - 实时性能指标监控
+   - **健康检查** - 多层级健康状态监控
+   - **日志集成** - 结构化日志与链路关联
+
+4. **🔌 高级功能**
+   - **WebSocket** - 企业级实时通信支持
+   - **缓存系统** - 多提供者缓存与统计
+   - **功能开关** - 动态功能控制与A/B测试
+   - **动态配置** - 运行时配置热更新
+
+#### 🚀 快速开始
+
+```go
+package main
+
+import (
+    "github.com/gin-gonic/gin"
+    "github.com/tokmz/basic/pkg/chi"
+)
+
+func main() {
+    // 创建企业级应用
+    app := chi.New(
+        chi.WithName("enterprise-api"),
+        chi.WithVersion("1.0.0"),
+        chi.WithEnvironment("production"),
+    )
+    
+    // 业务路由
+    app.GET("/api/users", func(c *gin.Context) {
+        c.JSON(200, gin.H{"users": []string{"Alice", "Bob"}})
+    })
+    
+    // 自动启动 - 包含信号处理和优雅关闭
+    app.Run(":8080")
+}
+```
+
+启动后自动提供管理控制台：
+- `http://localhost:8080/health` - 健康检查
+- `http://localhost:8080/metrics` - 性能指标  
+- `http://localhost:8080/admin/*` - 管理控制台
+
+#### 🎯 管理控制台
+
+Chi框架自动提供强大的管理控制台，包含：
+
+```bash
+# 系统监控
+GET /admin/system          # 系统状态（内存、CPU等）
+GET /admin/plugins         # 插件管理
+GET /admin/governance      # 服务治理仪表板
+GET /admin/tracing/stats   # 链路追踪统计
+GET /admin/cache/stats     # 缓存统计
+GET /admin/config          # 动态配置
+GET /admin/feature-flags   # 功能开关
+GET /admin/events          # 事件系统
+```
+
+#### 🛡️ 服务治理示例
+
+```go
+func main() {
+    app := chi.New()
+    
+    // 配置服务治理
+    governanceConfig := &chi.GovernanceConfig{
+        EnableCircuitBreaker: true,
+        EnableRateLimit:     true,
+        EnableBulkhead:      true,
+        CircuitBreaker: &chi.CircuitBreakerConfig{
+            Name:        "user-service",
+            MaxRequests: 3,
+            Timeout:     60 * time.Second,
+        },
+        RateLimit: &chi.RateLimitConfig{
+            Rate:   100,
+            Window: time.Minute,
+        },
+    }
+    
+    // 应用治理策略
+    app.GovernanceManager().SetConfig("user-service", governanceConfig)
+    
+    // 使用治理中间件
+    api := app.Group("/api")
+    api.Use(chi.GovernanceMiddleware(app.GovernanceManager(), "user-service"))
+    
+    api.GET("/users", func(c *gin.Context) {
+        // 业务逻辑 - 受熔断器和限流保护
+        c.JSON(200, gin.H{"users": []string{}})
+    })
+    
+    app.Run(":8080")
+}
+```
+
+#### 🔌 WebSocket实时通信
+
+```go
+func main() {
+    app := chi.New()
+    
+    // WebSocket聊天室
+    app.WebSocket("/chat", func(conn *chi.WebSocketConn) {
+        hub := app.WSHub()
+        hub.Register(conn)
+        defer hub.Unregister(conn)
+        
+        // 加入房间
+        hub.JoinRoom(conn, "general")
+        defer hub.LeaveRoom(conn, "general")
+        
+        for {
+            var message map[string]interface{}
+            if err := conn.ReadJSON(&message); err != nil {
+                break
+            }
+            
+            // 广播到房间
+            hub.BroadcastToRoomJSON("general", gin.H{
+                "user":    conn.ClientID(),
+                "message": message["text"],
+                "time":    time.Now(),
+            })
+        }
+    })
+    
+    app.Run(":8080")
+}
+```
+
+#### 📢 企业事件系统
+
+```go
+func main() {
+    app := chi.New()
+    
+    // 订阅业务事件
+    app.EventBus().SubscribeFunc("user.created", func(ctx context.Context, event chi.Event) error {
+        userData := event.Data().(map[string]interface{})
+        fmt.Printf("New user created: %v\n", userData["user_id"])
+        
+        // 发送欢迎邮件
+        return sendWelcomeEmail(userData["email"].(string))
+    })
+    
+    // 发布事件
+    app.POST("/api/users", func(c *gin.Context) {
+        var user map[string]interface{}
+        c.ShouldBindJSON(&user)
+        
+        // 保存用户...
+        
+        // 发布用户创建事件
+        event := chi.NewEvent("user.created", "api", user)
+        app.EventBus().Publish(c.Request.Context(), event)
+        
+        c.JSON(201, gin.H{"user": user})
+    })
+    
+    app.Run(":8080")
+}
+```
+
+更多详细用法请参考：[Chi 包文档](pkg/chi/README.md)
+
 ### Logger 包 - 企业级日志系统
 
 基于 Zap 的高性能企业级日志包，提供完整的日志管理解决方案：
@@ -754,6 +948,24 @@ go test -v -race -cover ./...
 | 监控器接口 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
 | 可扩展架构 | ✅ 完成 | ✅ 通过 | ✅ 安全 |
 
+### Chi 包状态
+
+| 功能模块 | 实现状态 | 测试状态 | 企业特性 |
+|----------|----------|----------|----------|
+| 基础Web框架 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| WebSocket支持 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 插件系统 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 服务发现 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 熔断器 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 限流控制 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 舱壁模式 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 分布式追踪 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 缓存系统 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 动态配置 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 功能开关 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 事件系统 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+| 管理控制台 | ✅ 完成 | ✅ 通过 | ✅ 支持 |
+
 ### 规划中的包
 
 - **Server 包** - HTTP/gRPC 服务框架
@@ -808,6 +1020,8 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 - [Config 包文档](pkg/config/README.md)
 - [Logger 包文档](pkg/logger/)
 - [Monitor 包文档](pkg/monitor/README.md)
+- [Chi 框架文档](pkg/chi/README.md) ⭐ **新增**
+- [Chi 更新日志](pkg/chi/CHANGELOG.md)
 - [并发安全指南](CONCURRENT_SAFETY.md)
 - [变更日志](CHANGELOG.md)
 - [Go Workspace 官方文档](https://go.dev/doc/tutorial/workspaces)

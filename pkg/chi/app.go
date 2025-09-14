@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -25,6 +26,15 @@ type App struct {
 	health     *HealthChecker
 	wsHub      *WebSocketHub
 	
+	// 高级功能
+	pluginManager    *PluginManager
+	cacheManager     *CacheManager
+	tracer          Tracer
+	governanceManager *GovernanceManager
+	dynamicConfig    *DynamicConfigManager
+	featureFlags     *FeatureFlagManager
+	eventBus         *EventBus
+	
 	// 生命周期钩子
 	beforeStart []func() error
 	afterStart  []func() error
@@ -32,7 +42,8 @@ type App struct {
 	afterStop   []func() error
 	
 	// 状态
-	started bool
+	started   bool
+	startTime time.Time
 }
 
 // New 创建新的企业级应用
@@ -56,6 +67,27 @@ func New(opts ...Option) *App {
 		metrics: NewMetrics(),
 		health:  NewHealthChecker(config.Name, config.Version, config.Environment),
 		wsHub:   NewWebSocketHub(),
+		
+		// 高级功能初始化
+		cacheManager:     NewCacheManager(),
+		tracer:          NewMemoryTracer(DefaultTracerConfig()),
+		governanceManager: NewGovernanceManager(),
+		dynamicConfig:    NewDynamicConfigManager(),
+		eventBus:         NewEventBus(),
+	}
+	
+	// 初始化插件管理器
+	app.pluginManager = NewPluginManager(app)
+	
+	// 初始化功能开关管理器
+	app.featureFlags = NewFeatureFlagManager(app.dynamicConfig)
+	
+	// 设置事件总线中间件
+	if app.logger != nil {
+		app.eventBus.Use(LoggingEventMiddleware(app.logger))
+	}
+	if app.metrics != nil {
+		app.eventBus.Use(MetricsEventMiddleware(app.metrics))
 	}
 	
 	// 设置默认中间件
@@ -121,6 +153,21 @@ func (a *App) setupDefaultRoutes() {
 		a.engine.GET("/metrics", func(c *gin.Context) {
 			c.JSON(200, a.metrics.GetMetrics())
 		})
+		
+		// 高级指标端点
+		a.engine.GET("/metrics/tracing", func(c *gin.Context) {
+			if memTracer, ok := a.tracer.(*MemoryTracer); ok {
+				c.JSON(200, memTracer.GetTracingStats())
+			} else {
+				c.JSON(200, gin.H{"message": "tracing stats not available"})
+			}
+		})
+		
+		// 缓存统计端点
+		a.engine.GET("/metrics/cache", func(c *gin.Context) {
+			// TODO: 实现缓存统计获取
+			c.JSON(200, gin.H{"message": "cache stats"})
+		})
 	}
 	
 	// 应用信息
@@ -133,6 +180,204 @@ func (a *App) setupDefaultRoutes() {
 			"git_commit":  a.config.GitCommit,
 		})
 	})
+	
+	// 管理端点组
+	admin := a.engine.Group("/admin")
+	{
+		// 插件管理
+		admin.GET("/plugins", func(c *gin.Context) {
+			plugins := a.pluginManager.ListPlugins()
+			c.JSON(200, gin.H{"plugins": plugins})
+		})
+		
+		admin.POST("/plugins/:name/start", func(c *gin.Context) {
+			name := c.Param("name")
+			if err := a.pluginManager.StartPlugin(name); err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(200, gin.H{"message": "plugin started"})
+		})
+		
+		admin.POST("/plugins/:name/stop", func(c *gin.Context) {
+			name := c.Param("name")
+			if err := a.pluginManager.StopPlugin(name); err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(200, gin.H{"message": "plugin stopped"})
+		})
+		
+		// 缓存管理
+		admin.GET("/cache/stats", func(c *gin.Context) {
+			provider := a.cacheManager.GetProvider("")
+			if statsProvider, ok := provider.(*StatsCacheProvider); ok {
+				stats := statsProvider.GetStats()
+				c.JSON(200, stats)
+			} else {
+				c.JSON(200, gin.H{"message": "stats not available"})
+			}
+		})
+		
+		admin.POST("/cache/clear", func(c *gin.Context) {
+			provider := a.cacheManager.GetProvider("")
+			if err := provider.Clear(c.Request.Context()); err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(200, gin.H{"message": "cache cleared"})
+		})
+		
+		// 治理管理
+		admin.GET("/governance", GovernanceDashboardHandler(a.governanceManager))
+		admin.GET("/governance/:service", ConfigurationAPI(a.governanceManager))
+		admin.PUT("/governance/:service", ConfigurationAPI(a.governanceManager))
+		admin.POST("/governance/:service", ConfigurationAPI(a.governanceManager))
+		
+		// 链路追踪管理
+		admin.GET("/tracing/stats", func(c *gin.Context) {
+			if memTracer, ok := a.tracer.(*MemoryTracer); ok {
+				stats := memTracer.GetTracingStats()
+				c.JSON(200, stats)
+			} else {
+				c.JSON(200, gin.H{"message": "tracing stats not available"})
+			}
+		})
+		
+		admin.GET("/tracing/traces", func(c *gin.Context) {
+			if memTracer, ok := a.tracer.(*MemoryTracer); ok {
+				traces := memTracer.GetAllTraces()
+				c.JSON(200, traces)
+			} else {
+				c.JSON(200, gin.H{"message": "traces not available"})
+			}
+		})
+		
+		admin.GET("/tracing/trace/:id", func(c *gin.Context) {
+			traceID := c.Param("id")
+			if memTracer, ok := a.tracer.(*MemoryTracer); ok {
+				trace := memTracer.GetTrace(traceID)
+				if trace == nil {
+					c.JSON(404, gin.H{"error": "trace not found"})
+					return
+				}
+				c.JSON(200, trace)
+			} else {
+				c.JSON(200, gin.H{"message": "tracing not available"})
+			}
+		})
+		
+		// 动态配置管理
+		admin.GET("/config", ConfigAPI(a.dynamicConfig))
+		admin.POST("/config", ConfigAPI(a.dynamicConfig))
+		admin.PUT("/config", ConfigAPI(a.dynamicConfig))
+		admin.DELETE("/config", ConfigAPI(a.dynamicConfig))
+		
+		// 功能开关管理
+		admin.GET("/feature-flags", func(c *gin.Context) {
+			flags := a.featureFlags.GetAllFlags()
+			c.JSON(200, gin.H{"feature_flags": flags})
+		})
+		
+		admin.POST("/feature-flags", func(c *gin.Context) {
+			var flag FeatureFlag
+			if err := c.ShouldBindJSON(&flag); err != nil {
+				c.JSON(400, gin.H{"error": err.Error()})
+				return
+			}
+			
+			a.featureFlags.SetFlag(&flag)
+			c.JSON(200, gin.H{"message": "feature flag updated"})
+		})
+		
+		admin.GET("/feature-flags/:name/check", func(c *gin.Context) {
+			flagName := c.Param("name")
+			context := map[string]interface{}{
+				"user_id": c.Query("user_id"),
+				"ip":      c.ClientIP(),
+			}
+			
+			enabled := a.featureFlags.IsEnabled(flagName, context)
+			c.JSON(200, gin.H{
+				"flag":    flagName,
+				"enabled": enabled,
+				"context": context,
+			})
+		})
+		
+		// 事件系统管理
+		admin.GET("/events", func(c *gin.Context) {
+			filters := EventFilters{
+				EventType: c.Query("type"),
+				Source:    c.Query("source"),
+				Limit:     10,
+			}
+			
+			if limitStr := c.Query("limit"); limitStr != "" {
+				if limit, err := time.ParseDuration(limitStr); err == nil {
+					filters.Limit = int(limit)
+				}
+			}
+			
+			events, err := a.eventBus.eventStore.List(filters)
+			if err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			
+			c.JSON(200, gin.H{"events": events})
+		})
+		
+		admin.GET("/events/stats", func(c *gin.Context) {
+			stats := a.eventBus.Stats()
+			c.JSON(200, stats)
+		})
+		
+		admin.POST("/events", func(c *gin.Context) {
+			var request struct {
+				Type   string      `json:"type" binding:"required"`
+				Data   interface{} `json:"data"`
+				Source string      `json:"source"`
+			}
+			
+			if err := c.ShouldBindJSON(&request); err != nil {
+				c.JSON(400, gin.H{"error": err.Error()})
+				return
+			}
+			
+			source := request.Source
+			if source == "" {
+				source = "admin_api"
+			}
+			
+			event := NewEvent(request.Type, source, request.Data)
+			if err := a.eventBus.Publish(c.Request.Context(), event); err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			
+			c.JSON(200, gin.H{"message": "event published", "event_id": event.ID()})
+		})
+		
+		// 系统状态
+		admin.GET("/system", func(c *gin.Context) {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			
+			c.JSON(200, gin.H{
+				"app":        a.config.Name,
+				"version":    a.config.Version,
+				"uptime":     time.Since(a.startTime).String(),
+				"goroutines": runtime.NumGoroutine(),
+				"memory": gin.H{
+					"alloc":       m.Alloc,
+					"total_alloc": m.TotalAlloc,
+					"sys":         m.Sys,
+					"num_gc":      m.NumGC,
+				},
+			})
+		})
+	}
 	
 	// 404处理
 	a.engine.NoRoute(func(c *gin.Context) {
@@ -252,6 +497,41 @@ func (a *App) WSHub() *WebSocketHub {
 	return a.wsHub
 }
 
+// PluginManager 获取插件管理器
+func (a *App) PluginManager() *PluginManager {
+	return a.pluginManager
+}
+
+// CacheManager 获取缓存管理器
+func (a *App) CacheManager() *CacheManager {
+	return a.cacheManager
+}
+
+// Tracer 获取链路追踪器
+func (a *App) Tracer() Tracer {
+	return a.tracer
+}
+
+// GovernanceManager 获取治理管理器
+func (a *App) GovernanceManager() *GovernanceManager {
+	return a.governanceManager
+}
+
+// DynamicConfig 获取动态配置管理器
+func (a *App) DynamicConfig() *DynamicConfigManager {
+	return a.dynamicConfig
+}
+
+// FeatureFlags 获取功能开关管理器
+func (a *App) FeatureFlags() *FeatureFlagManager {
+	return a.featureFlags
+}
+
+// EventBus 获取事件总线
+func (a *App) EventBus() *EventBus {
+	return a.eventBus
+}
+
 // BeforeStart 注册启动前钩子
 func (a *App) BeforeStart(fn func() error) *App {
 	a.beforeStart = append(a.beforeStart, fn)
@@ -298,6 +578,7 @@ func (a *App) Start(addr string) error {
 	}
 	
 	a.started = true
+	a.startTime = time.Now()
 	
 	// 执行启动后钩子
 	for _, fn := range a.afterStart {
@@ -310,6 +591,16 @@ func (a *App) Start(addr string) error {
 	fmt.Printf("📊 Metrics: http://localhost%s/metrics\n", addr)
 	fmt.Printf("🏥 Health: http://localhost%s/health\n", addr)
 	fmt.Printf("ℹ️  Info: http://localhost%s/info\n", addr)
+	
+	// 发布应用启动事件
+	if a.eventBus != nil {
+		startEvent := NewEvent(EventTypeAppStarted, "app", map[string]interface{}{
+			"name":    a.config.Name,
+			"version": a.config.Version,
+			"address": addr,
+		})
+		a.eventBus.Publish(context.Background(), startEvent)
+	}
 	
 	return a.server.ListenAndServe()
 }
@@ -336,6 +627,7 @@ func (a *App) StartTLS(addr, certFile, keyFile string) error {
 	}
 	
 	a.started = true
+	a.startTime = time.Now()
 	
 	// 执行启动后钩子
 	for _, fn := range a.afterStart {
@@ -374,6 +666,15 @@ func (a *App) Shutdown(ctx context.Context) error {
 	
 	a.started = false
 	fmt.Println("✅ Application shutdown completed")
+	
+	// 发布应用停止事件
+	if a.eventBus != nil {
+		stopEvent := NewEvent(EventTypeAppStopped, "app", map[string]interface{}{
+			"name":    a.config.Name,
+			"version": a.config.Version,
+		})
+		a.eventBus.Publish(context.Background(), stopEvent)
+	}
 	
 	return err
 }

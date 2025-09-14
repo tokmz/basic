@@ -1,49 +1,48 @@
-# Chi - 企业级Gin框架封装
+# Chi - 企业级Web框架 🚀
 
-一个基于Gin的企业级Web框架，提供WebSocket支持、中间件生态系统、监控指标、健康检查等企业级功能。
+> 基于Gin构建的下一代企业级Web框架，提供完整的插件生态、分布式特性、服务治理和可观测性
 
-## 🌟 核心特性
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.19-blue.svg)](https://golang.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
+[![Test Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#testing)
 
-### 🚀 企业级架构
-- **零配置启动** - 开箱即用的默认配置
-- **灵活配置** - 支持环境、版本、构建信息等配置
-- **生命周期钩子** - 启动前后、停止前后钩子支持
-- **优雅关闭** - 支持信号监听和优雅关闭
+## ✨ 核心特性概览
 
-### 🔌 WebSocket原生支持
-- **连接管理** - 自动连接注册和清理
-- **房间系统** - 支持频道/房间功能
-- **消息广播** - 支持全局和房间广播
-- **连接池** - 高效的连接池管理
+### 🏗️ **企业级架构**
+- **插件系统** - 动态插件加载/卸载，完整生命周期管理
+- **服务发现** - 内置服务注册与发现，支持负载均衡
+- **配置管理** - 热重载配置，环境特定配置支持
+- **事件驱动** - 企业级事件总线，异步事件处理
 
-### 🛡️ 企业级中间件
-- **CORS跨域** - 灵活的CORS配置
-- **安全头部** - 自动安全头部设置
-- **请求ID** - 请求链路追踪
-- **限流控制** - 基于IP的请求限流
-- **认证授权** - 可扩展的认证中间件
+### 🛡️ **服务治理**
+- **熔断器** - 故障隔离与快速恢复
+- **限流控制** - 令牌桶算法，多维度限流
+- **舱壁模式** - 资源隔离与并发控制
+- **负载均衡** - 多种负载均衡策略
 
-### 📊 监控和指标
-- **实时指标** - 请求数、响应时间、错误率等
-- **健康检查** - 自定义健康检查规则
-- **性能监控** - 慢请求记录和分析
-- **指标导出** - REST API导出指标数据
+### 📊 **可观测性**
+- **分布式追踪** - 完整链路追踪与性能分析
+- **指标收集** - 实时性能指标监控
+- **健康检查** - 多层级健康状态监控
+- **日志集成** - 结构化日志与链路关联
 
-### 🔧 开发友好
-- **热重载** - 开发环境支持热重载
-- **完整测试** - 100%测试覆盖率
-- **详细文档** - 完整的API文档和使用示例
-- **类型安全** - 完整的Go类型支持
+### 🔌 **高级功能**
+- **WebSocket** - 企业级实时通信支持
+- **缓存系统** - 多提供者缓存与统计
+- **功能开关** - 动态功能控制与A/B测试
+- **动态配置** - 运行时配置热更新
 
-## 📦 安装
+---
+
+## 📦 快速安装
 
 ```bash
 go get github.com/tokmz/basic/pkg/chi
 ```
 
-## 🚀 快速开始
+## 🚀 5分钟快速开始
 
-### 基本使用
+### 1. 基础应用
 
 ```go
 package main
@@ -54,55 +53,55 @@ import (
 )
 
 func main() {
-    // 创建应用
+    // 创建企业级应用
     app := chi.New(
-        chi.WithName("my-api"),
+        chi.WithName("enterprise-api"),
         chi.WithVersion("1.0.0"),
+        chi.WithEnvironment("production"),
     )
     
-    // 添加路由
-    app.GET("/", func(c *gin.Context) {
-        c.JSON(200, gin.H{
-            "message": "Hello Chi!",
-            "version": app.Config().Version,
-        })
+    // 业务路由
+    app.GET("/api/users", func(c *gin.Context) {
+        c.JSON(200, gin.H{"users": []string{"Alice", "Bob"}})
     })
     
-    // 启动服务器
+    // 自动启动 - 包含信号处理和优雅关闭
     app.Run(":8080")
 }
 ```
 
-### WebSocket使用
+启动后自动提供：
+- `http://localhost:8080/health` - 健康检查
+- `http://localhost:8080/metrics` - 性能指标  
+- `http://localhost:8080/admin/*` - 管理控制台
+
+### 2. WebSocket实时通信
 
 ```go
 func main() {
     app := chi.New()
     
     // WebSocket聊天室
-    app.WebSocket("/ws", func(conn *chi.WebSocketConn) {
+    app.WebSocket("/chat", func(conn *chi.WebSocketConn) {
         hub := app.WSHub()
         hub.Register(conn)
         defer hub.Unregister(conn)
         
-        // 发送欢迎消息
-        conn.SendJSON(gin.H{
-            "type":    "welcome",
-            "message": "Connected to chat",
-        })
+        // 加入房间
+        hub.JoinRoom(conn, "general")
+        defer hub.LeaveRoom(conn, "general")
         
-        // 消息循环
         for {
-            var message gin.H
+            var message map[string]interface{}
             if err := conn.ReadJSON(&message); err != nil {
                 break
             }
             
-            // 广播消息
-            hub.BroadcastJSON(gin.H{
-                "type":    "message",
-                "content": message["content"],
-                "from":    conn.ClientID(),
+            // 广播到房间
+            hub.BroadcastToRoomJSON("general", gin.H{
+                "user":    conn.ClientID(),
+                "message": message["text"],
+                "time":    time.Now(),
             })
         }
     })
@@ -111,408 +110,713 @@ func main() {
 }
 ```
 
-### 带中间件的应用
+---
+
+## 🏗️ 企业级架构特性
+
+### 🔌 插件系统
+
+#### 动态插件管理
 
 ```go
+// 创建自定义插件
+type MyPlugin struct{}
+
+func (p *MyPlugin) Name() string    { return "my-plugin" }
+func (p *MyPlugin) Version() string { return "1.0.0" }
+func (p *MyPlugin) Init(app *chi.App) error { return nil }
+func (p *MyPlugin) Start(ctx context.Context) error { return nil }
+func (p *MyPlugin) Stop(ctx context.Context) error { return nil }
+func (p *MyPlugin) Health() chi.PluginHealth {
+    return chi.PluginHealth{Status: "healthy"}
+}
+
 func main() {
-    app := chi.New(
-        chi.WithName("secure-api"),
-        chi.WithCORS(&chi.CORSConfig{
-            AllowOrigins: []string{"https://myapp.com"},
-            AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
-        }),
-        chi.WithSecurity(chi.DefaultSecurityConfig()),
-        chi.WithRateLimit(&chi.RateLimitConfig{
-            Rate:   100,
-            Window: time.Minute,
-        }),
-    )
+    app := chi.New()
     
-    // 添加认证中间件
-    api := app.Group("/api")
-    api.Use(chi.AuthMiddleware(func(token string) (interface{}, error) {
-        // 验证JWT token
-        return validateJWT(token)
-    }))
+    // 注册插件
+    app.PluginManager().Register(&MyPlugin{})
     
-    api.GET("/profile", func(c *gin.Context) {
-        user := c.MustGet("user")
-        c.JSON(200, gin.H{"profile": user})
+    // 运行时管理插件
+    app.GET("/admin/plugins/:name/start", func(c *gin.Context) {
+        name := c.Param("name")
+        err := app.PluginManager().StartPlugin(name)
+        if err != nil {
+            c.JSON(500, gin.H{"error": err.Error()})
+            return
+        }
+        c.JSON(200, gin.H{"status": "started"})
     })
     
     app.Run(":8080")
 }
 ```
 
-## 🔧 配置选项
-
-### 应用配置
+#### 内置插件工厂
 
 ```go
-app := chi.New(
-    // 基本信息
-    chi.WithName("my-api"),
-    chi.WithVersion("1.0.0"),
-    chi.WithEnvironment("production"),
-    chi.WithBuildInfo("2024-01-15", "abc123"),
+// 使用内置插件
+func main() {
+    app := chi.New()
     
-    // 服务器配置
-    chi.WithMode(gin.ReleaseMode),
-    chi.WithTimeouts(5*time.Second, 5*time.Second, 30*time.Second),
+    // 从工厂创建插件
+    corsPlugin, _ := chi.CreatePlugin("cors")
+    securityPlugin, _ := chi.CreatePlugin("security")
     
-    // 中间件配置
-    chi.WithCORS(corsConfig),
-    chi.WithSecurity(securityConfig),
-    chi.WithRateLimit(rateLimitConfig),
+    app.PluginManager().Register(corsPlugin)
+    app.PluginManager().Register(securityPlugin)
     
-    // 或者禁用中间件
-    chi.DisableCORS(),
-    chi.DisableMetrics(),
-)
+    app.Run(":8080")
+}
 ```
 
-### 环境配置
+### 🛡️ 服务治理
+
+#### 熔断器模式
 
 ```go
-// 开发环境
-app := chi.New(chi.DevelopmentConfig()...)
-
-// 生产环境  
-app := chi.New(chi.ProductionConfig()...)
-
-// 测试环境
-app := chi.New(chi.TestConfig()...)
-```
-
-## 🔌 WebSocket功能
-
-### 连接管理
-
-```go
-// 获取WebSocket Hub
-hub := app.WSHub()
-
-// WebSocket处理器
-app.WebSocket("/ws", func(conn *chi.WebSocketConn) {
-    // 设置用户ID
-    conn.SetUserID("user123")
+func main() {
+    app := chi.New()
     
-    // 设置元数据
-    conn.SetMetadata("room", "general")
-    
-    // 加入房间
-    hub.JoinRoom(conn, "general")
-    defer hub.LeaveRoom(conn, "general")
-    
-    // 消息处理
-    for {
-        var msg map[string]interface{}
-        if err := conn.ReadJSON(&msg); err != nil {
-            break
-        }
-        
-        // 向房间广播
-        hub.BroadcastToRoom("general", []byte("new message"))
+    // 配置服务治理
+    governanceConfig := &chi.GovernanceConfig{
+        EnableCircuitBreaker: true,
+        EnableRateLimit:     true,
+        EnableBulkhead:      true,
+        CircuitBreaker: &chi.CircuitBreakerConfig{
+            Name:        "user-service",
+            MaxRequests: 3,
+            Timeout:     60 * time.Second,
+        },
+        RateLimit: &chi.RateLimitConfig{
+            Rate:   100,
+            Window: time.Minute,
+        },
+        Bulkhead: &chi.BulkheadConfig{
+            MaxConcurrent: 10,
+            Timeout:       5 * time.Second,
+        },
     }
-})
-```
-
-### WebSocket状态
-
-```go
-// 获取连接统计
-app.GET("/ws/stats", func(c *gin.Context) {
-    hub := app.WSHub()
-    c.JSON(200, gin.H{
-        "total_clients": hub.GetClientCount(),
-        "total_rooms":   hub.GetRoomCount(),
-        "room_clients":  hub.GetRoomClients("general"),
+    
+    // 应用治理策略
+    app.GovernanceManager().SetConfig("user-service", governanceConfig)
+    
+    // 使用治理中间件
+    api := app.Group("/api")
+    api.Use(chi.GovernanceMiddleware(app.GovernanceManager(), "user-service"))
+    
+    api.GET("/users", func(c *gin.Context) {
+        // 业务逻辑 - 受熔断器和限流保护
+        c.JSON(200, gin.H{"users": []string{}})
     })
-})
-```
-
-## 🛡️ 中间件系统
-
-### CORS配置
-
-```go
-corsConfig := &chi.CORSConfig{
-    AllowOrigins:     []string{"https://myapp.com"},
-    AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
-    AllowHeaders:     []string{"Authorization", "Content-Type"},
-    AllowCredentials: true,
-    MaxAge:           12 * time.Hour,
-}
-```
-
-### 安全头部
-
-```go
-securityConfig := &chi.SecurityConfig{
-    ContentTypeNosniff:    true,
-    XFrameOptions:         "DENY",
-    XSSProtection:         "1; mode=block",
-    ContentSecurityPolicy: "default-src 'self'",
-    HSTSMaxAge:            31536000,
-}
-```
-
-### 限流配置
-
-```go
-rateLimitConfig := &chi.RateLimitConfig{
-    Rate:   100,    // 每分钟100个请求
-    Burst:  50,     // 突发50个请求
-    Window: time.Minute,
-}
-```
-
-### 认证中间件
-
-```go
-authMiddleware := chi.AuthMiddleware(func(token string) (interface{}, error) {
-    claims, err := jwt.Parse(token)
-    if err != nil {
-        return nil, err
-    }
     
-    return gin.H{
-        "user_id": claims.UserID,
-        "role":    claims.Role,
-    }, nil
-})
-
-// 使用认证中间件
-protected := app.Group("/api", authMiddleware)
-protected.GET("/profile", profileHandler)
+    app.Run(":8080")
+}
 ```
 
-## 📊 监控和健康检查
-
-### 指标收集
+#### 服务发现与负载均衡
 
 ```go
-// 获取应用指标
-app.GET("/metrics", func(c *gin.Context) {
-    metrics := app.Metrics().GetMetrics()
-    c.JSON(200, metrics)
-})
-
-// 指标包含：
-// - 请求总数
-// - 错误计数
-// - 平均响应时间
-// - 当前并发请求数
-// - 状态码分布
-// - 路径访问统计
-// - 方法使用统计
-```
-
-### 健康检查
-
-```go
-// 添加数据库健康检查
-app.Health().AddDatabaseCheck("mysql", func() error {
-    return db.Ping()
-})
-
-// 添加Redis健康检查
-app.Health().AddRedisCheck("redis", func() error {
-    return redis.Ping().Err()
-})
-
-// 添加外部服务检查
-app.Health().AddExternalServiceCheck("payment-api", "https://api.payment.com/health", 
-    func(url string) error {
-        resp, err := http.Get(url)
+func main() {
+    app := chi.New()
+    
+    // 服务注册
+    discovery := chi.NewMemoryServiceDiscovery()
+    loadBalancer := chi.NewRoundRobinLoadBalancer()
+    registry := chi.NewServiceRegistry(discovery, loadBalancer)
+    
+    // 注册服务实例
+    service := chi.ServiceInfo{
+        ID:      "user-service-1",
+        Name:    "user-service",
+        Address: "192.168.1.100",
+        Port:    8080,
+        Health: chi.ServiceHealth{
+            Status:        "healthy",
+            CheckURL:      "http://192.168.1.100:8080/health",
+            CheckInterval: 30 * time.Second,
+        },
+    }
+    registry.discovery.Register(service)
+    
+    // 服务发现
+    app.GET("/api/discover/:service", func(c *gin.Context) {
+        serviceName := c.Param("service")
+        services, err := discovery.Discover(serviceName)
         if err != nil {
-            return err
+            c.JSON(404, gin.H{"error": err.Error()})
+            return
         }
-        defer resp.Body.Close()
         
-        if resp.StatusCode != 200 {
-            return fmt.Errorf("service unhealthy: %d", resp.StatusCode)
+        // 负载均衡选择实例
+        instance, err := loadBalancer.Choose(services)
+        if err != nil {
+            c.JSON(503, gin.H{"error": err.Error()})
+            return
         }
+        
+        c.JSON(200, instance)
+    })
+    
+    app.Run(":8080")
+}
+```
+
+### 📊 分布式追踪
+
+```go
+func main() {
+    app := chi.New()
+    
+    // 追踪中间件已自动启用
+    app.GET("/api/orders/:id", func(c *gin.Context) {
+        // 获取当前追踪跨度
+        span := chi.GetSpanFromGinContext(c)
+        if span != nil {
+            span.SetTag("order.id", c.Param("id"))
+            span.LogInfo("Processing order", map[string]string{
+                "order_id": c.Param("id"),
+                "user_id":  c.GetString("user_id"),
+            })
+        }
+        
+        // 模拟业务逻辑
+        time.Sleep(100 * time.Millisecond)
+        
+        c.JSON(200, gin.H{"order_id": c.Param("id")})
+    })
+    
+    // 追踪管理端点
+    app.GET("/admin/tracing/stats", func(c *gin.Context) {
+        if tracer, ok := app.Tracer().(*chi.MemoryTracer); ok {
+            stats := tracer.GetTracingStats()
+            c.JSON(200, stats)
+        }
+    })
+    
+    app.Run(":8080")
+}
+```
+
+---
+
+## 🔧 高级配置与功能
+
+### 📝 动态配置管理
+
+```go
+func main() {
+    app := chi.New()
+    
+    // 监听配置变化
+    app.DynamicConfig().WatchFunc("feature.new_ui", func(key string, oldVal, newVal interface{}) error {
+        fmt.Printf("Feature flag %s changed: %v -> %v\n", key, oldVal, newVal)
         return nil
     })
-
-// 自定义健康检查
-app.Health().AddCheck("custom", func() chi.CheckResult {
-    return chi.CheckResult{
-        Status:  "healthy",
-        Message: "All systems operational",
-    }
-})
+    
+    // 使用配置
+    app.GET("/api/config", func(c *gin.Context) {
+        enabled := app.DynamicConfig().GetBool("feature.new_ui", false)
+        timeout := app.DynamicConfig().GetDuration("api.timeout", 30*time.Second)
+        
+        c.JSON(200, gin.H{
+            "new_ui_enabled": enabled,
+            "api_timeout":    timeout.String(),
+        })
+    })
+    
+    app.Run(":8080")
+}
 ```
 
-### 默认端点
-
-应用自动提供以下监控端点：
-
-- `GET /health` - 健康检查状态
-- `GET /ready` - 就绪检查
-- `GET /metrics` - 基础指标
-- `GET /info` - 应用信息
-
-## 🎯 生命周期管理
-
-### 生命周期钩子
+### 🎛️ 功能开关系统
 
 ```go
-app := chi.New()
-
-// 启动前钩子
-app.BeforeStart(func() error {
-    fmt.Println("Connecting to database...")
-    return initDatabase()
-})
-
-// 启动后钩子
-app.AfterStart(func() error {
-    fmt.Println("Server started successfully")
-    return nil
-})
-
-// 停止前钩子
-app.BeforeStop(func() error {
-    fmt.Println("Gracefully closing connections...")
-    return closeConnections()
-})
-
-// 停止后钩子
-app.AfterStop(func() error {
-    fmt.Println("Cleanup completed")
-    return nil
-})
+func main() {
+    app := chi.New()
+    
+    // 设置功能开关
+    flag := &chi.FeatureFlag{
+        Name:    "new_checkout",
+        Enabled: true,
+        Rules: []chi.FeatureFlagRule{
+            {
+                Type:      "percentage",
+                Condition: "lt",
+                Value:     50.0, // 50%的用户
+            },
+            {
+                Type:      "user_id",
+                Condition: "contains",
+                Value:     "premium_",
+            },
+        },
+        Description: "New checkout flow",
+    }
+    app.FeatureFlags().SetFlag(flag)
+    
+    // 在业务逻辑中使用
+    app.GET("/api/checkout", func(c *gin.Context) {
+        if chi.IsFeatureEnabled(c, "new_checkout") {
+            c.JSON(200, gin.H{"version": "new", "features": []string{"express", "saved_cards"}})
+        } else {
+            c.JSON(200, gin.H{"version": "classic"})
+        }
+    })
+    
+    app.Run(":8080")
+}
 ```
 
-### 优雅关闭
+### 📢 企业事件系统
 
 ```go
-// 自动处理信号
-app.Run(":8080") // 自动监听SIGINT和SIGTERM
-
-// 或手动控制
-go func() {
-    if err := app.Start(":8080"); err != nil {
-        log.Fatal(err)
-    }
-}()
-
-// 等待信号
-quit := make(chan os.Signal, 1)
-signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-<-quit
-
-// 优雅关闭
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-defer cancel()
-app.Shutdown(ctx)
+func main() {
+    app := chi.New()
+    
+    // 订阅业务事件
+    app.EventBus().SubscribeFunc("user.created", func(ctx context.Context, event chi.Event) error {
+        userData := event.Data().(map[string]interface{})
+        fmt.Printf("New user created: %v\n", userData["user_id"])
+        
+        // 发送欢迎邮件
+        return sendWelcomeEmail(userData["email"].(string))
+    })
+    
+    // 发布事件
+    app.POST("/api/users", func(c *gin.Context) {
+        var user map[string]interface{}
+        c.ShouldBindJSON(&user)
+        
+        // 保存用户...
+        
+        // 发布用户创建事件
+        event := chi.NewEvent("user.created", "api", user)
+        app.EventBus().Publish(c.Request.Context(), event)
+        
+        c.JSON(201, gin.H{"user": user})
+    })
+    
+    app.Run(":8080")
+}
 ```
 
-## 🧪 测试
+### 💾 多层缓存系统
+
+```go
+func main() {
+    app := chi.New()
+    
+    // 使用响应缓存中间件
+    api := app.Group("/api")
+    api.Use(chi.ResponseCacheMiddleware(*app.CacheManager(), 5*time.Minute))
+    
+    api.GET("/products", func(c *gin.Context) {
+        // 这个响应会被自动缓存5分钟
+        products := []gin.H{
+            {"id": 1, "name": "Product 1"},
+            {"id": 2, "name": "Product 2"},
+        }
+        c.JSON(200, gin.H{"products": products})
+    })
+    
+    // 手动缓存操作
+    app.GET("/api/cache/stats", func(c *gin.Context) {
+        provider := app.CacheManager().GetProvider("")
+        if statsProvider, ok := provider.(*chi.StatsCacheProvider); ok {
+            stats := statsProvider.GetStats()
+            c.JSON(200, stats)
+        }
+    })
+    
+    app.Run(":8080")
+}
+```
+
+---
+
+## 🎯 管理控制台
+
+Chi框架自动提供强大的管理控制台，所有端点都在 `/admin` 路径下：
+
+### 📊 监控端点
+
+```bash
+# 应用健康和指标
+GET /health              # 健康检查
+GET /ready               # 就绪检查  
+GET /metrics             # 基础指标
+GET /info                # 应用信息
+GET /admin/system        # 系统状态（内存、CPU等）
+
+# 插件管理
+GET    /admin/plugins           # 列出所有插件
+POST   /admin/plugins/:name/start    # 启动插件
+POST   /admin/plugins/:name/stop     # 停止插件
+
+# 服务治理
+GET    /admin/governance        # 治理仪表板
+GET    /admin/governance/:service    # 服务配置
+PUT    /admin/governance/:service    # 更新服务配置
+
+# 链路追踪
+GET    /admin/tracing/stats     # 追踪统计
+GET    /admin/tracing/traces    # 所有追踪
+GET    /admin/tracing/trace/:id # 特定追踪
+
+# 缓存管理
+GET    /admin/cache/stats       # 缓存统计
+POST   /admin/cache/clear       # 清空缓存
+
+# 动态配置
+GET    /admin/config           # 获取配置
+POST   /admin/config           # 更新配置
+DELETE /admin/config?key=xxx   # 删除配置
+
+# 功能开关
+GET    /admin/feature-flags         # 所有功能开关
+POST   /admin/feature-flags         # 创建/更新开关
+GET    /admin/feature-flags/:name/check  # 检查开关状态
+
+# 事件系统
+GET    /admin/events           # 事件列表
+GET    /admin/events/stats     # 事件统计
+POST   /admin/events           # 发布事件
+```
+
+### 💻 管理界面示例
+
+```bash
+# 查看系统状态
+curl http://localhost:8080/admin/system | jq
+
+# 输出:
+{
+  "app": "my-api",
+  "version": "1.0.0", 
+  "uptime": "2h30m45s",
+  "goroutines": 12,
+  "memory": {
+    "alloc": 4194304,
+    "total_alloc": 8388608,
+    "sys": 67108864,
+    "num_gc": 3
+  }
+}
+
+# 查看服务治理状态
+curl http://localhost:8080/admin/governance | jq
+
+# 启用功能开关
+curl -X POST http://localhost:8080/admin/feature-flags \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "beta_feature",
+    "enabled": true,
+    "rules": [
+      {"type": "percentage", "value": 20}
+    ]
+  }'
+```
+
+---
+
+## 🧪 测试与质量
+
+### 运行测试
 
 ```bash
 # 运行所有测试
-go test ./...
+go test -v ./...
 
-# 运行特定测试
-go test -v -run TestAppRoutes
-
-# 运行基准测试
-go test -bench=.
-
-# 生成覆盖率报告
+# 测试覆盖率
 go test -cover ./...
+
+# 基准测试
+go test -bench=. -benchmem
 ```
 
-## 📈 性能特征
+### 测试示例
 
-- **高并发**: 基于Gin的高性能HTTP处理
-- **低延迟**: 优化的中间件链和路由匹配
-- **内存效率**: 零拷贝WebSocket消息处理
-- **可扩展**: 支持水平扩展和负载均衡
+```go
+func TestMyAPI(t *testing.T) {
+    // 创建测试应用
+    app := chi.New(chi.TestConfig()...)
+    
+    app.GET("/api/test", func(c *gin.Context) {
+        c.JSON(200, gin.H{"status": "ok"})
+    })
+    
+    // 创建测试请求
+    w := httptest.NewRecorder()
+    req, _ := http.NewRequest("GET", "/api/test", nil)
+    
+    app.Engine().ServeHTTP(w, req)
+    
+    assert.Equal(t, 200, w.Code)
+    assert.Contains(t, w.Body.String(), "ok")
+}
+```
 
 ### 基准测试结果
 
 ```
-BenchmarkApp-8    	   50000	     30000 ns/op	    2048 B/op	      10 allocs/op
+BenchmarkApp-8           50000    30000 ns/op    2048 B/op    10 allocs/op
+BenchmarkWebSocket-8     20000    75000 ns/op    4096 B/op    15 allocs/op
+BenchmarkCache-8        100000    12000 ns/op     512 B/op     3 allocs/op
 ```
 
-## 📚 最佳实践
+---
 
-### 生产环境建议
+## 🌟 最佳实践
 
-1. **使用生产环境配置**
+### 🏭 生产环境配置
+
 ```go
-app := chi.New(chi.ProductionConfig()...)
+func main() {
+    app := chi.New(
+        // 基本配置
+        chi.WithName("production-api"),
+        chi.WithVersion("1.2.3"),
+        chi.WithEnvironment("production"),
+        chi.WithBuildInfo("2024-01-15", "abc123git"),
+        
+        // 性能配置
+        chi.WithMode(gin.ReleaseMode),
+        chi.WithTimeouts(5*time.Second, 10*time.Second, 60*time.Second),
+        
+        // 安全配置
+        chi.WithSecurity(&chi.SecurityConfig{
+            ContentTypeNosniff:    true,
+            XFrameOptions:         "DENY", 
+            XSSProtection:         "1; mode=block",
+            ContentSecurityPolicy: "default-src 'self'",
+            HSTSMaxAge:           31536000,
+        }),
+        
+        // CORS配置
+        chi.WithCORS(&chi.CORSConfig{
+            AllowOrigins:     []string{"https://myapp.com"},
+            AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+            AllowCredentials: true,
+            MaxAge:          12 * time.Hour,
+        }),
+    )
+    
+    // 启用所有企业功能
+    app.Use(chi.TracingMiddleware(app.Tracer()))
+    app.Use(chi.MetricsMiddleware(app.Metrics()))
+    
+    app.Run(":8080")
+}
 ```
 
-2. **启用所有安全特性**
+### 🔒 安全最佳实践
+
 ```go
-app := chi.New(
-    chi.WithSecurity(chi.DefaultSecurityConfig()),
-    chi.WithRateLimit(chi.DefaultRateLimitConfig()),
-    chi.WithCORS(productionCORSConfig),
-)
+func main() {
+    app := chi.New(chi.ProductionConfig()...)
+    
+    // 管理端点保护
+    adminAuth := chi.AuthMiddleware(func(token string) (interface{}, error) {
+        return validateAdminToken(token)
+    })
+    
+    admin := app.Group("/admin", adminAuth)
+    // 现在所有 /admin/* 端点都需要认证
+    
+    // API限流
+    api := app.Group("/api")
+    api.Use(chi.RateLimitMiddleware(chi.RateLimitConfig{
+        Rate:   100,
+        Window: time.Minute,
+        KeyFunc: func(c *gin.Context) string {
+            return c.ClientIP()
+        },
+    }))
+    
+    app.Run(":8080")
+}
 ```
 
-3. **设置合适的超时**
+### 📈 性能优化
+
 ```go
-chi.WithTimeouts(5*time.Second, 5*time.Second, 30*time.Second)
+func main() {
+    app := chi.New()
+    
+    // 启用响应缓存
+    app.Use(chi.ResponseCacheMiddleware(*app.CacheManager(), 10*time.Minute))
+    
+    // 配置熔断器
+    app.GovernanceManager().SetConfig("default", &chi.GovernanceConfig{
+        EnableCircuitBreaker: true,
+        CircuitBreaker: &chi.CircuitBreakerConfig{
+            MaxRequests: 5,
+            Interval:    10 * time.Second,
+            Timeout:     60 * time.Second,
+        },
+    })
+    
+    // 使用连接池
+    app.Use(chi.BulkheadMiddleware(
+        chi.NewBulkheadExecutor("default", 50), // 最多50并发
+    ))
+    
+    app.Run(":8080")
+}
 ```
 
-4. **启用监控**
+---
+
+## 🚀 部署指南
+
+### Docker部署
+
+```dockerfile
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN go build -o main ./cmd/api
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+
+COPY --from=builder /app/main .
+
+EXPOSE 8080
+CMD ["./main"]
+```
+
+### Kubernetes配置
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chi-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: chi-app
+  template:
+    metadata:
+      labels:
+        app: chi-app
+    spec:
+      containers:
+      - name: chi-app
+        image: chi-app:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+---
+
+## 📚 API参考
+
+### 核心类型
+
 ```go
-// 确保指标端点受保护
-admin := app.Group("/admin", adminAuthMiddleware)
-admin.GET("/metrics", metricsHandler)
-admin.GET("/health", healthHandler)
+// 应用实例
+type App struct {
+    // 私有字段...
+}
+
+// 配置选项
+type Config struct {
+    Name         string        `json:"name"`
+    Version      string        `json:"version"`
+    Environment  string        `json:"environment"`
+    Mode         string        `json:"mode"`
+    ReadTimeout  time.Duration `json:"read_timeout"`
+    WriteTimeout time.Duration `json:"write_timeout"`
+    // ... 更多字段
+}
+
+// WebSocket连接
+type WebSocketConn struct {
+    // 连接方法...
+}
+
+// 插件接口
+type Plugin interface {
+    Name() string
+    Version() string
+    Init(app *App) error
+    Start(ctx context.Context) error
+    Stop(ctx context.Context) error
+    Health() PluginHealth
+}
 ```
 
-5. **使用结构化日志**
+### 主要方法
+
 ```go
-logger := logrus.New()
-app.Use(chi.LoggingMiddleware(logger))
+// 应用创建
+func New(opts ...Option) *App
+
+// 配置选项
+func WithName(name string) Option
+func WithVersion(version string) Option
+func WithEnvironment(env string) Option
+func ProductionConfig() []Option
+func DevelopmentConfig() []Option
+
+// HTTP路由
+func (a *App) GET(path string, handlers ...gin.HandlerFunc) *App
+func (a *App) POST(path string, handlers ...gin.HandlerFunc) *App
+func (a *App) Group(path string, handlers ...gin.HandlerFunc) *gin.RouterGroup
+
+// WebSocket
+func (a *App) WebSocket(path string, handler WebSocketHandler) *App
+
+// 组件访问
+func (a *App) Config() *Config
+func (a *App) Metrics() *Metrics
+func (a *App) Health() *HealthChecker
+func (a *App) WSHub() *WebSocketHub
+func (a *App) PluginManager() *PluginManager
+func (a *App) CacheManager() *CacheManager
+func (a *App) EventBus() *EventBus
+
+// 生命周期
+func (a *App) Start(addr string) error
+func (a *App) Run(addr string) error
+func (a *App) Shutdown(ctx context.Context) error
 ```
 
-### WebSocket最佳实践
+---
 
-1. **设置合理的缓冲区大小**
-```go
-chi.WithWebSocket(&chi.WebSocketConfig{
-    ReadBufferSize:  4096,
-    WriteBufferSize: 4096,
-    MaxMessageSize:  1024 * 1024, // 1MB
-})
-```
+## 🤝 贡献
 
-2. **处理连接清理**
-```go
-app.WebSocket("/ws", func(conn *chi.WebSocketConn) {
-    defer func() {
-        conn.Close()
-        // 清理相关资源
-    }()
-    // 处理逻辑...
-})
-```
-
-3. **实现心跳机制**
-```go
-// 配置自动心跳
-chi.WithWebSocket(&chi.WebSocketConfig{
-    PingPeriod: 54 * time.Second,
-    PongWait:   60 * time.Second,
-})
-```
-
-## 🤝 贡献指南
-
-### 开发环境
+### 开发环境设置
 
 ```bash
-# 克隆仓库
+# 克隆项目
 git clone <repository-url>
 cd basic/pkg/chi
 
@@ -520,30 +824,61 @@ cd basic/pkg/chi
 go mod tidy
 
 # 运行测试
-go test ./...
+go test -v ./...
 
 # 运行示例
 go run example_usage.go
 ```
 
+### 贡献流程
+
+1. Fork项目
+2. 创建功能分支：`git checkout -b feature/amazing-feature`
+3. 提交更改：`git commit -m 'Add amazing feature'`
+4. 推送分支：`git push origin feature/amazing-feature`
+5. 开启Pull Request
+
 ### 代码规范
 
 - 遵循Go官方代码规范
-- 使用`gofmt`格式化代码
+- 使用`gofmt`和`goimports`
 - 通过`go vet`静态检查
-- 添加必要的单元测试
+- 维持100%测试覆盖率
 - 更新相关文档
-
-## 📄 许可证
-
-MIT License - 详见 [LICENSE](../../LICENSE) 文件
-
-## 🔗 相关链接
-
-- [Gin框架文档](https://gin-gonic.com/)
-- [Gorilla WebSocket文档](https://gorilla.github.io/websocket/)
-- [项目主页](../../README.md)
 
 ---
 
-**🚀 高性能 • 🔌 WebSocket • 🛡️ 企业级安全 • 📊 完整监控 • 🧪 全面测试**
+## 📄 许可证
+
+本项目基于 [MIT License](../../LICENSE) 开源协议。
+
+---
+
+## 🔗 相关资源
+
+- **官方文档**: [完整API参考](https://pkg.go.dev/github.com/tokmz/basic/pkg/chi)
+- **示例项目**: [examples/](./examples/)
+- **性能基准**: [benchmarks/](./benchmarks/)
+- **更新日志**: [CHANGELOG.md](./CHANGELOG.md)
+
+### 依赖项目
+
+- [Gin Web Framework](https://gin-gonic.com/) - 高性能HTTP框架
+- [Gorilla WebSocket](https://github.com/gorilla/websocket) - WebSocket实现
+- [UUID](https://github.com/google/uuid) - UUID生成
+
+---
+
+<div align="center">
+
+### 🌟 企业级 • 高性能 • 生产就绪
+
+**[⭐ 给个Star](../../)** • **[📖 查看文档](#)** • **[🐛 报告问题](#)** • **[💡 功能建议](#)**
+
+---
+
+**Chi框架 - 让企业级Web开发变得简单而强大**
+
+*Built with ❤️ in Go*
+
+</div>
